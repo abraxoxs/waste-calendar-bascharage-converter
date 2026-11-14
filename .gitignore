@@ -9,3 +9,6 @@ output/
 
 # Local server settings
 .env
+
+# Editor settings
+.vscode/
