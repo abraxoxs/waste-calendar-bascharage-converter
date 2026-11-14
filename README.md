@@ -13,7 +13,7 @@ task all       # test, convert, upload, verify online
 
 ## Source PDF
 
-The municipality's calendar PDF is not part of this repository. Download it from the municipality's website and put it into `input/` (for example `input/22285_SIDOR_calendrier_2026.pdf`). Files matching `input/*.pdf` are git-ignored.
+The municipality's calendar PDF is not part of this repository. Download it from the municipality's website and put it into `input/` (for example `input/22285_SIDOR_calendrier_2026.pdf`). The folder `input/` is git-ignored.
 
 The calendar is bilingual (French on the first page, German on the second). The parser relies on the layout and abbreviations of the 2026 edition; see [Known limits](#known-limits).
 
@@ -22,8 +22,8 @@ The calendar is bilingual (French on the first page, German on the second). The 
 ```
 waste_calendar.py        converter (PDF -> JSON, CSV, ICS)
 tests/                   pytest tests
-input/                   source PDFs (git-ignored)
-output/                  generated files
+input/                   source PDFs (git-ignored, not in the repository)
+output/                  generated files (git-ignored, not in the repository)
 Taskfile.yml             convert and deploy commands
 .env.example             template for the server settings (copy to .env)
 requirements.txt         pypdf, pytest
@@ -73,7 +73,7 @@ Server settings come from `.env` (see [Deployment](#deployment)).
 
 ## Output files
 
-In `output/`:
+In `output/` (git-ignored, recreated by every run):
 
 - **Per year:** `kaerjeng_waste_<year>.json`, `.csv`, `.ics`, and `kaerjeng_waste_<year>.notes.json` (footnote texts from the PDF, only used when merging, not uploaded).
 - **Without year:** `kaerjeng_waste.json`, `.csv`, `.ics`. They merge all years present in the output folder. The name stays the same across years, so this is the file to subscribe to.

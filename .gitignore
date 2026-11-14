@@ -3,8 +3,9 @@ __pycache__/
 .pytest_cache/
 .DS_Store
 
-# Source PDFs from the municipality are not redistributed
-input/*.pdf
+# Source PDFs of the municipality and generated files are not part of the repository
+input/
+output/
 
 # Local server settings
 .env
