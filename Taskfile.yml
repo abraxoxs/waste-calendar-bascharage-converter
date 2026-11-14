@@ -1,8 +1,8 @@
-# https://taskfile.dev – `task` zeigt alle Befehle, `task all PDF=input/xyz.pdf` für alles in einem Schritt.
+# https://taskfile.dev – `task` lists all commands, `task all PDF=input/xyz.pdf` does everything in one step.
 version: "3"
 
 vars:
-  # Neuestes PDF in input/, überschreibbar: task convert PDF=input/anderes.pdf
+  # Newest PDF in input/, can be overridden: task convert PDF=input/other.pdf
   PDF:
     sh: ls -t input/*.pdf | head -1
   PY: .venv/bin/python
@@ -19,7 +19,7 @@ tasks:
     silent: true
 
   setup:
-    desc: Virtualenv anlegen und Abhängigkeiten installieren
+    desc: Create the virtualenv and install dependencies
     status:
       - test -x .venv/bin/pytest
     cmds:
@@ -27,13 +27,13 @@ tasks:
       - .venv/bin/pip install -q -r requirements.txt
 
   test:
-    desc: Tests ausführen
+    desc: Run the tests
     deps: [setup]
     cmds:
       - .venv/bin/pytest -q
 
   convert:
-    desc: PDF in JSON, CSV und ICS umwandeln (PDF=input/xyz.pdf, Default = neuestes PDF)
+    desc: Convert the PDF to JSON, CSV and ICS (PDF=input/xyz.pdf, default = newest PDF)
     deps: [setup]
     cmds:
       - "{{.PY}} waste_calendar.py {{.PDF}} --outdir {{.OUTDIR}} {{.CLI_ARGS}}"
@@ -44,42 +44,42 @@ tasks:
       - "{{.OUTDIR}}/kaerjeng_waste.ics"
 
   convert:force:
-    desc: Umwandeln ohne Aktualitätsprüfung
+    desc: Convert without the up-to-date check
     deps: [setup]
     cmds:
       - "{{.PY}} waste_calendar.py {{.PDF}} --outdir {{.OUTDIR}} {{.CLI_ARGS}}"
 
   deploy:
-    desc: Dateien auf den Hetzner-Server hochladen und online prüfen
+    desc: Upload the files to the Hetzner server and verify them online
     cmds:
       - task: upload
       - task: verify
 
   upload:
-    desc: Nur hochladen (Backup der alten Dateien auf dem Server, Rechte 644)
+    desc: Upload only (old files are backed up on the server, mode 644)
     cmds:
       - >-
         rsync -av --exclude='*.notes.json'
         --backup --backup-dir={{.BACKUP_ROOT}}/backup-waste-$(date +%Y-%m-%d-%H%M%S)
         {{.OUTDIR}}/kaerjeng_waste*.ics {{.OUTDIR}}/kaerjeng_waste*.json {{.OUTDIR}}/kaerjeng_waste*.csv
         {{.HOST}}:{{.REMOTE_DIR}}/
-      # macOS-rsync kennt kein --chmod; nginx braucht lesbare Dateien (sonst 403)
+      # macOS rsync has no --chmod; nginx needs readable files (otherwise 403)
       - ssh {{.HOST}} "chmod 644 {{.REMOTE_DIR}}/*"
     preconditions:
       - sh: test -f {{.OUTDIR}}/kaerjeng_waste.ics
-        msg: "Keine Outputs gefunden – zuerst `task convert` ausführen."
+        msg: "No output found - run `task convert` first."
 
   verify:
-    desc: Prüfen, dass die ICS online erreichbar und identisch mit der lokalen ist
+    desc: Check that the ICS is reachable online and identical to the local file
     cmds:
       - |
         code=$(curl -s -o /dev/null -w '%{http_code}' {{.URL}}/kaerjeng_waste.ics)
-        [ "$code" = "200" ] || { echo "FEHLER: HTTP $code"; exit 1; }
+        [ "$code" = "200" ] || { echo "ERROR: HTTP $code"; exit 1; }
         curl -s {{.URL}}/kaerjeng_waste.ics | cmp - {{.OUTDIR}}/kaerjeng_waste.ics \
-          && echo "OK: {{.URL}}/kaerjeng_waste.ics ist identisch mit der lokalen Datei"
+          && echo "OK: {{.URL}}/kaerjeng_waste.ics is identical to the local file"
 
   all:
-    desc: Tests, Umwandeln und Deployen in einem Schritt
+    desc: Test, convert and deploy in one step
     cmds:
       - task: test
       - task: convert:force
