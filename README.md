@@ -1,83 +1,89 @@
-# Müllkalender Käerjeng
+# Käerjeng Waste Calendar
 
-Wandelt den Abfuhrkalender der Gemeinde Käerjeng (PDF von SIDOR) in JSON, CSV und ICS um und veröffentlicht ihn auf `example.com`. Die ICS kann in Kalender-Apps oder Home Assistant abonniert werden.
+Converts the waste collection calendar of the municipality of Käerjeng, Luxembourg (PDF from SIDOR) into JSON, CSV and ICS, and publishes it to a web server. The ICS can be subscribed to in calendar apps or in Home Assistant.
 
-**Abo-URL:** https://example.com/waste/kaerjeng_waste.ics
+## Quick start
 
-## Schnellstart
-
-Voraussetzungen: Python 3.12+, [Task](https://taskfile.dev), SSH-Zugang zu einem Webserver zum Server (nur für das Deployment).
+Requirements: Python 3.12+, [Task](https://taskfile.dev), and SSH access to the target server (only needed for deployment).
 
 ```
-task setup     # einmalig: venv und Abhängigkeiten
-task all       # Tests, Umwandeln, Hochladen, Online-Prüfung
+task setup     # once: create venv, install dependencies
+task all       # test, convert, upload, verify online
 ```
 
-## Projektstruktur
+## Source PDF
+
+The municipality's calendar PDF is not part of this repository. Download it from the municipality's website and put it into `input/` (for example `input/22285_SIDOR_calendrier_2026.pdf`). Files matching `input/*.pdf` are git-ignored.
+
+The calendar is bilingual (French on the first page, German on the second). The parser relies on the layout and abbreviations of the 2026 edition; see [Known limits](#known-limits).
+
+## Project layout
 
 ```
-waste_calendar.py        Konverter (PDF -> JSON, CSV, ICS)
-tests/                   pytest-Tests
-input/                   Quell-PDFs der Gemeinde
-output/                  erzeugte Dateien (werden mit eingecheckt)
-Taskfile.yml             Befehle für Umwandeln und Deployen
+waste_calendar.py        converter (PDF -> JSON, CSV, ICS)
+tests/                   pytest tests
+input/                   source PDFs (git-ignored)
+output/                  generated files
+Taskfile.yml             convert and deploy commands
 requirements.txt         pypdf, pytest
 ```
 
-## Task-Befehle
+## Task commands
 
-`task` ohne Argumente zeigt alle Befehle.
+Run `task` without arguments to list all commands.
 
-| Befehl | Wirkung |
+| Command | Effect |
 |---|---|
-| `task setup` | venv anlegen, Abhängigkeiten installieren |
-| `task test` | Tests ausführen |
-| `task convert` | neuestes PDF in `input/` umwandeln. Anderes PDF: `PDF=input/x.pdf`. Zusatzoptionen nach `--`, z. B. `task convert -- --no-alarm` |
-| `task convert:force` | umwandeln, auch wenn sich nichts geändert hat |
-| `task upload` | Dateien auf den Server laden (Backup der alten Dateien dort, Rechte 644) |
-| `task verify` | prüfen, dass die ICS online erreichbar und identisch mit der lokalen ist |
-| `task deploy` | `upload` und `verify` |
+| `task setup` | create the venv and install dependencies |
+| `task test` | run the tests |
+| `task convert` | convert the newest PDF in `input/`. Other PDF: `PDF=input/x.pdf`. Extra options after `--`, e.g. `task convert -- --no-alarm` |
+| `task convert:force` | convert even if nothing changed |
+| `task upload` | upload the files to the server (replaced files are backed up there, mode 644) |
+| `task verify` | check that the ICS is reachable online and identical to the local file |
+| `task deploy` | `upload`, then `verify` |
 | `task all` | `test`, `convert:force`, `deploy` |
 
-Server, Zielpfad und URL stehen oben in `Taskfile.yml`.
+Server, target path and URL are defined at the top of `Taskfile.yml`.
 
-## Neues Jahr
+## New year
 
-1. Neues PDF in `input/` legen.
-2. `task all` ausführen.
-3. Die Dateien ohne Jahr enthalten danach beide Jahre. Die URL für Abo und Home Assistant bleibt gleich.
+1. Put the new PDF into `input/`.
+2. Run `task all`.
+3. The files without a year now contain both years. The URL used for subscriptions and Home Assistant stays the same.
 
-## Konverter direkt aufrufen
+## Running the converter directly
 
 ```
 .venv/bin/python waste_calendar.py input/22285_SIDOR_calendrier_2026.pdf --outdir output
 ```
 
-| Option | Bedeutung |
+| Option | Meaning |
 |---|---|
-| `--outdir ORDNER` | Zielordner (Default `.`) |
-| `--year JJJJ` | Jahr überschreiben (Default: aus dem PDF-Titel) |
-| `--name NAME` | Dateiname-Präfix (Default `kaerjeng_waste`) |
-| `--municipality NAME` | Gemeindename in der Terminbeschreibung (Default `Käerjeng`) |
-| `--locality {clemency,fingig,bascharage,hautcharage,linger}` | nur den Heckenschnitt dieses Ortes in die ICS aufnehmen |
-| `--exclude TYP …` | Abfalltypen (Schlüssel, siehe unten) aus der ICS weglassen |
-| `--alarm HH:MM` | Erinnerung am Vorabend zu dieser Uhrzeit (Default 19:00) |
-| `--no-alarm` | keine Erinnerung (`VALARM`) in die ICS schreiben |
+| `--outdir DIR` | output directory (default `.`) |
+| `--year YYYY` | override the year (default: read from the PDF title) |
+| `--name NAME` | file name prefix (default `kaerjeng_waste`) |
+| `--municipality NAME` | municipality name used in event descriptions (default `Käerjeng`) |
+| `--locality {clemency,fingig,bascharage,hautcharage,linger}` | keep only the shrub collection of this locality in the ICS |
+| `--exclude TYPE …` | leave waste types (keys, see below) out of the ICS |
+| `--alarm HH:MM` | reminder time on the evening before (default 19:00) |
+| `--no-alarm` | write no reminders (`VALARM`) to the ICS |
 
-`--locality` und `--exclude` wirken nur auf die ICS. JSON und CSV enthalten immer alles.
+`--locality` and `--exclude` only affect the ICS. JSON and CSV always contain everything.
 
-## Ausgabedateien
+## Output files
 
-Im Ordner `output/`:
+In `output/`:
 
-- **Pro Jahr:** `kaerjeng_waste_<jahr>.json`, `.csv`, `.ics` und `kaerjeng_waste_<jahr>.notes.json` (Fußnotentexte aus dem PDF, nur für die Zusammenführung, wird nicht hochgeladen).
-- **Ohne Jahr:** `kaerjeng_waste.json`, `.csv`, `.ics`. Sie führen alle im Ordner vorhandenen Jahre zusammen. Der Name bleibt über den Jahreswechsel gleich, deshalb gehört diese Datei ins Abo.
+- **Per year:** `kaerjeng_waste_<year>.json`, `.csv`, `.ics`, and `kaerjeng_waste_<year>.notes.json` (footnote texts from the PDF, only used when merging, not uploaded).
+- **Without year:** `kaerjeng_waste.json`, `.csv`, `.ics`. They merge all years present in the output folder. The name stays the same across years, so this is the file to subscribe to.
 
-Die ICS enthält einen Termin pro Abfallart und Tag mit stabiler UID. Zwei Läufe liefern identische Dateien.
+The ICS contains one event per waste type and day with a stable UID. Two runs produce identical files.
 
-## Abfalltypen
+Event titles and descriptions are in German, because the target calendar is used in German.
 
-| Schlüssel | Titel in der ICS |
+## Waste types
+
+| Key | Title in the ICS |
 |---|---|
 | `household` | Hausmüll |
 | `organic` | Bioabfall |
@@ -91,11 +97,11 @@ Die ICS enthält einen Termin pro Abfallart und Tag mit stabiler UID. Zwei Läuf
 | `shrubs_clemency_fingig` | Heckenschnitt Clemency/Fingig |
 | `shrubs_bascharage_hautcharage_linger` | Heckenschnitt Bascharage/Hautcharage/Linger |
 
-Mit `--locality` heißt der Heckenschnitt nur noch `Heckenschnitt`. Sperrmüll und Elektrogeräte (nur auf Anfrage) bekommen keine Erinnerung.
+With `--locality`, the shrub collection is simply called `Heckenschnitt`. Bulky waste and electrical appliances (on request only) get no reminder.
 
 ## Home Assistant
 
-Die Integration [Waste Collection Schedule](https://github.com/mampfes/hacs_waste_collection_schedule) liest die ICS über die generische Quelle `ics`. Die Abfallart kommt aus dem Titel des Termins.
+The [Waste Collection Schedule](https://github.com/mampfes/hacs_waste_collection_schedule) integration reads the ICS through its generic `ics` source. The waste type is taken from the event title.
 
 ```yaml
 waste_collection_schedule:
@@ -105,34 +111,34 @@ waste_collection_schedule:
         url: "https://example.com/waste/kaerjeng_waste.ics"
       customize:
         - type: Elektrogeräte
-          show: false                    # optional ausblenden
+          show: false                    # optional: hide
   sensors:
     - name: Hausmüll
       types:
         - Hausmüll
 ```
 
-- Ab Version 2.0.0 geht die Einrichtung auch über die HA-Oberfläche, mit denselben Argumenten.
-- Für HA am besten mit `--locality <ort>` erzeugen, damit nur der eigene Heckenschnitt enthalten ist.
-- Wie die Integration die Erinnerungen (`VALARM`) behandelt, steht nicht in der Doku. Nach dem ersten Import prüfen, sonst mit `--no-alarm` neu erzeugen.
+- Since version 2.0.0 the integration can also be set up in the Home Assistant UI, with the same arguments.
+- For Home Assistant, generate the file with `--locality <place>` so that only your own shrub collection is included.
+- The integration's documentation does not say how it handles reminders (`VALARM`). Check after the first import; if they cause trouble, regenerate with `--no-alarm`.
 
 ## Deployment
 
-`task deploy` überträgt `kaerjeng_waste*.{ics,json,csv}` per rsync nach `the target directory` auf den Server. Das Verzeichnis ist in den nginx-Container eingebunden, ein Neustart ist nicht nötig. Vor dem Überschreiben landen geänderte Dateien in `/srv/web/backup-waste-<Zeitstempel>/` (außerhalb des öffentlichen Ordners). Anschließend setzt der Task die Rechte auf 644, sonst liefert nginx 403.
+`task deploy` copies `kaerjeng_waste*.{ics,json,csv}` with rsync to `the target directory` on the server `my-server`. That directory is bind-mounted into the nginx container, so no restart is needed. Before files are overwritten, changed ones are moved to `/srv/web/backup-waste-<timestamp>/` (outside the public folder). Afterwards the task sets file mode 644, otherwise nginx answers with 403.
 
-Der Ordner ist per Directory-Listing öffentlich einsehbar. Die Daten sind unkritisch, es ist ein öffentlicher Abfuhrkalender.
+The folder has a public directory listing. The data is harmless: it is a public waste collection calendar.
 
-## Validierung
+## Validation
 
-Der Konverter bricht ohne Schreiben ab (Exit ungleich 0), wenn er
+The converter aborts without writing anything (non-zero exit) if it
 
-- 0 Termine findet,
-- nicht alle 12 Monate findet,
-- einen Wochentag findet, der nicht zum Datum passt,
-- eine Zelle nicht vollständig klassifizieren kann oder
-- die Datei nicht als PDF lesen kann.
+- finds no events,
+- does not find all 12 months,
+- finds a weekday that does not match the date,
+- cannot fully classify a cell, or
+- cannot read the file as a PDF.
 
-Bei einer unbekannten Zelle braucht die Alias-Tabelle in `waste_calendar.py` einen neuen Eintrag. Warnungen auf stderr gibt es bei weniger als 12× Glas oder Papier und weniger als 52× Hausmüll.
+For an unknown cell, add an entry to the alias table in `waste_calendar.py`. Warnings go to stderr if there are fewer than 12 glass or paper dates, or fewer than 52 household waste dates.
 
 ## Tests
 
@@ -140,8 +146,10 @@ Bei einer unbekannten Zelle braucht die Alias-Tabelle in `waste_calendar.py` ein
 task test
 ```
 
-## Bekannte Grenzen
+The end-to-end test uses the real PDF and is skipped if it is missing from `input/`.
 
-- Altkleidersammlung, Altpapiersammlung der Vereine und Schulferien stehen im PDF nur als Symbole oder Farben und werden nicht extrahiert.
-- Feiertage im PDF werden ignoriert.
-- Die Klassifizierung ist auf die Schreibweisen im Kalender 2026 abgestimmt. Ein neues PDF kann neue Abkürzungen enthalten. Der Konverter meldet das als Fehler, statt Termine still wegzulassen.
+## Known limits
+
+- Clothing collection, association paper collection and school holidays appear in the PDF only as symbols or colours and are not extracted.
+- Public holidays in the PDF are ignored.
+- Classification is tuned to the spelling used in the 2026 calendar. A new PDF may contain new abbreviations; the converter reports them as an error instead of silently dropping events.
