@@ -5,3 +5,6 @@ __pycache__/
 
 # Source PDFs from the municipality are not redistributed
 input/*.pdf
+
+# Local server settings
+.env

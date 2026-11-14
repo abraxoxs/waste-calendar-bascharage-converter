@@ -1,16 +1,15 @@
 # https://taskfile.dev – `task` lists all commands, `task all PDF=input/xyz.pdf` does everything in one step.
 version: "3"
 
+# Server settings (HOST, REMOTE_DIR, BACKUP_ROOT, URL) live in .env, see .env.example.
+dotenv: [".env"]
+
 vars:
   # Newest PDF in input/, can be overridden: task convert PDF=input/other.pdf
   PDF:
     sh: ls -t input/*.pdf | head -1
   PY: .venv/bin/python
   OUTDIR: output
-  HOST: my-server
-  REMOTE_DIR: /srv/web/data/waste
-  BACKUP_ROOT: /srv/web
-  URL: https://example.com/waste
 
 tasks:
   default:
@@ -60,23 +59,28 @@ tasks:
     cmds:
       - >-
         rsync -av --exclude='*.notes.json'
-        --backup --backup-dir={{.BACKUP_ROOT}}/backup-waste-$(date +%Y-%m-%d-%H%M%S)
+        --backup --backup-dir="$BACKUP_ROOT/backup-waste-$(date +%Y-%m-%d-%H%M%S)"
         {{.OUTDIR}}/kaerjeng_waste*.ics {{.OUTDIR}}/kaerjeng_waste*.json {{.OUTDIR}}/kaerjeng_waste*.csv
-        {{.HOST}}:{{.REMOTE_DIR}}/
+        "$HOST:$REMOTE_DIR/"
       # macOS rsync has no --chmod; nginx needs readable files (otherwise 403)
-      - ssh {{.HOST}} "chmod 644 {{.REMOTE_DIR}}/*"
+      - ssh "$HOST" "chmod 644 $REMOTE_DIR/*"
     preconditions:
       - sh: test -f {{.OUTDIR}}/kaerjeng_waste.ics
         msg: "No output found - run `task convert` first."
+      - sh: test -n "$HOST" -a -n "$REMOTE_DIR" -a -n "$BACKUP_ROOT"
+        msg: "HOST, REMOTE_DIR and BACKUP_ROOT must be set in .env (see .env.example)."
 
   verify:
     desc: Check that the ICS is reachable online and identical to the local file
+    preconditions:
+      - sh: test -n "$URL"
+        msg: "URL must be set in .env (see .env.example)."
     cmds:
       - |
-        code=$(curl -s -o /dev/null -w '%{http_code}' {{.URL}}/kaerjeng_waste.ics)
+        code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/kaerjeng_waste.ics")
         [ "$code" = "200" ] || { echo "ERROR: HTTP $code"; exit 1; }
-        curl -s {{.URL}}/kaerjeng_waste.ics | cmp - {{.OUTDIR}}/kaerjeng_waste.ics \
-          && echo "OK: {{.URL}}/kaerjeng_waste.ics is identical to the local file"
+        curl -s "$URL/kaerjeng_waste.ics" | cmp - {{.OUTDIR}}/kaerjeng_waste.ics \
+          && echo "OK: $URL/kaerjeng_waste.ics is identical to the local file"
 
   all:
     desc: Test, convert and deploy in one step
