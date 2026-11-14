@@ -163,3 +163,7 @@ The end-to-end test uses the real PDF and is skipped if it is missing from `inpu
 - Clothing collection, association paper collection and school holidays appear in the PDF only as symbols or colours and are not extracted.
 - Public holidays in the PDF are ignored.
 - Classification is tuned to the spelling used in the 2026 calendar. A new PDF may contain new abbreviations; the converter reports them as an error instead of silently dropping events.
+
+## License
+
+[MIT](LICENSE). The municipality's calendar PDF is not covered by this license and is not part of the repository.
