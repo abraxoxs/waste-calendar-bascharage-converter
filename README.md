@@ -4,7 +4,7 @@ Converts the waste collection calendar of the municipality of Käerjeng, Luxembo
 
 ## Quick start
 
-Requirements: Python 3.12+, [Task](https://taskfile.dev), and SSH access to the target server (only needed for deployment).
+Requirements: Python 3.12+, [Task](https://taskfile.dev), and SSH access to a web server (only needed for deployment, configured in `.env`).
 
 ```
 task setup     # once: create venv, install dependencies
@@ -25,6 +25,7 @@ tests/                   pytest tests
 input/                   source PDFs (git-ignored)
 output/                  generated files
 Taskfile.yml             convert and deploy commands
+.env.example             template for the server settings (copy to .env)
 requirements.txt         pypdf, pytest
 ```
 
@@ -43,7 +44,7 @@ Run `task` without arguments to list all commands.
 | `task deploy` | `upload`, then `verify` |
 | `task all` | `test`, `convert:force`, `deploy` |
 
-Server, target path and URL are defined at the top of `Taskfile.yml`.
+Server settings come from `.env` (see [Deployment](#deployment)).
 
 ## New year
 
@@ -108,7 +109,7 @@ waste_collection_schedule:
   sources:
     - name: ics
       args:
-        url: "https://example.com/waste/kaerjeng_waste.ics"
+        url: "https://example.com/waste/kaerjeng_waste.ics"   # your public URL
       customize:
         - type: Elektrogeräte
           show: false                    # optional: hide
@@ -124,9 +125,18 @@ waste_collection_schedule:
 
 ## Deployment
 
-`task deploy` copies `kaerjeng_waste*.{ics,json,csv}` with rsync to `the target directory` on the server `my-server`. That directory is bind-mounted into the nginx container, so no restart is needed. Before files are overwritten, changed ones are moved to `/srv/web/backup-waste-<timestamp>/` (outside the public folder). Afterwards the task sets file mode 644, otherwise nginx answers with 403.
+Deployment is configured through a local `.env` file, which is git-ignored. Copy `.env.example` to `.env` and fill in:
 
-The folder has a public directory listing. The data is harmless: it is a public waste collection calendar.
+| Variable | Meaning |
+|---|---|
+| `HOST` | SSH host of the web server (as in `~/.ssh/config`) |
+| `REMOTE_DIR` | directory on the server that the web server publishes |
+| `BACKUP_ROOT` | directory on the server for backups, outside the public folder |
+| `URL` | public base URL of that directory, used by `task verify` |
+
+`task deploy` copies `kaerjeng_waste*.{ics,json,csv}` with rsync to `REMOTE_DIR`. Before files are overwritten, changed ones are moved to `BACKUP_ROOT/backup-waste-<timestamp>/`. Afterwards the task sets file mode 644 on the target, otherwise a web server running as another user may answer with 403 (macOS rsync has no `--chmod`). Then `task verify` downloads the ICS from `URL` and compares it with the local file.
+
+The data is harmless (a public waste collection calendar), but keep in mind that a published folder with directory listing is visible to everyone.
 
 ## Validation
 
