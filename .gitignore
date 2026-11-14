@@ -2,3 +2,6 @@
 __pycache__/
 .pytest_cache/
 .DS_Store
+
+# Source PDFs from the municipality are not redistributed
+input/*.pdf
